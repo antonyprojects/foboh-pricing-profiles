@@ -1,0 +1,26 @@
+{
+  "name": "@foboh/pricing-backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "FOBOH pricing-profile API (Express, in-memory store, Swagger).",
+  "main": "src/server.js",
+  "scripts": {
+    "dev": "node --watch src/server.js",
+    "start": "node src/server.js",
+    "test": "node --test --experimental-test-coverage src/**/*.test.js",
+    "test:unit": "node --test src/**/*.test.js"
+  },
+  "engines": {
+    "node": ">=20.6.0"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.2",
+    "morgan": "^1.10.0",
+    "swagger-ui-express": "^5.0.1",
+    "winston": "^3.17.0",
+    "zod": "^3.24.1"
+  }
+}
