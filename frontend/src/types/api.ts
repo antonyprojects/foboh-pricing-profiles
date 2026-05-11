@@ -138,5 +138,7 @@ export interface ApiErrorBody {
     code: string;
     message: string;
     details?: unknown;
+    /** Set on unhandled 500s so the user can quote it to support. */
+    errorId?: string;
   };
 }

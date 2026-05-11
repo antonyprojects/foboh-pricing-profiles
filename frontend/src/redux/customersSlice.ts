@@ -1,12 +1,13 @@
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 import { customersApi } from "@/api/endpoints";
-import type { Customer, Group } from "@/types/api";
+import type { Customer, CustomersResponse, Group } from "@/types/api";
+import { toThunkError, type ThunkErrorPayload } from "./thunkError";
 
 interface CustomersState {
   items: Customer[];
   groups: Group[];
   status: "idle" | "loading" | "ready" | "error";
-  error: string | null;
+  error: ThunkErrorPayload | null;
 }
 
 const initialState: CustomersState = {
@@ -16,7 +17,17 @@ const initialState: CustomersState = {
   error: null,
 };
 
-export const fetchCustomers = createAsyncThunk("customers/fetch", () => customersApi.list());
+export const fetchCustomers = createAsyncThunk<
+  CustomersResponse,
+  void,
+  { rejectValue: ThunkErrorPayload }
+>("customers/fetch", async (_, { rejectWithValue }) => {
+  try {
+    return await customersApi.list();
+  } catch (err) {
+    return rejectWithValue(toThunkError(err));
+  }
+});
 
 const slice = createSlice({
   name: "customers",
@@ -32,9 +43,9 @@ const slice = createSlice({
       state.groups = payload.groups;
       state.status = "ready";
     });
-    b.addCase(fetchCustomers.rejected, (state, { error }) => {
+    b.addCase(fetchCustomers.rejected, (state, { payload, error }) => {
       state.status = "error";
-      state.error = error.message ?? "Failed to load customers";
+      state.error = payload ?? { message: error.message ?? "Failed to load customers", code: "UNKNOWN", status: 0 };
     });
   },
 });

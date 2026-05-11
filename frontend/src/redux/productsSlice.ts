@@ -1,13 +1,14 @@
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 import { productsApi } from "@/api/endpoints";
-import type { ProductFacets, ProductListQuery, Product } from "@/types/api";
+import type { ProductFacets, ProductListQuery, ProductListResponse, Product } from "@/types/api";
+import { toThunkError, type ThunkErrorPayload } from "./thunkError";
 
 interface ProductsState {
   items: Product[];
   total: number;
   facets: ProductFacets;
   status: "idle" | "loading" | "ready" | "error";
-  error: string | null;
+  error: ThunkErrorPayload | null;
   query: ProductListQuery;
 }
 
@@ -20,13 +21,20 @@ const initialState: ProductsState = {
   query: {},
 };
 
-export const fetchProducts = createAsyncThunk(
-  "products/fetch",
-  async (query: ProductListQuery) => {
+interface FetchResult { res: ProductListResponse; query: ProductListQuery }
+
+export const fetchProducts = createAsyncThunk<
+  FetchResult,
+  ProductListQuery,
+  { rejectValue: ThunkErrorPayload }
+>("products/fetch", async (query, { rejectWithValue }) => {
+  try {
     const res = await productsApi.list(query);
     return { res, query };
-  },
-);
+  } catch (err) {
+    return rejectWithValue(toThunkError(err));
+  }
+});
 
 const slice = createSlice({
   name: "products",
@@ -48,9 +56,9 @@ const slice = createSlice({
       state.query = payload.query;
       state.status = "ready";
     });
-    b.addCase(fetchProducts.rejected, (state, { error }) => {
+    b.addCase(fetchProducts.rejected, (state, { payload, error }) => {
       state.status = "error";
-      state.error = error.message ?? "Failed to load products";
+      state.error = payload ?? { message: error.message ?? "Failed to load products", code: "UNKNOWN", status: 0 };
     });
   },
 });
