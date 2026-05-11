@@ -24,6 +24,8 @@ import { CustomerScopePicker } from "@/components/CustomerScopePicker";
 import { ProductScopePicker } from "@/components/ProductScopePicker";
 import { AdjustmentControls } from "@/components/AdjustmentControls";
 import { profilesApi } from "@/api/endpoints";
+import { ApiError } from "@/api/client";
+import { renderThunkError } from "@/redux/thunkError";
 import type {
   CreateProfileRequest,
   PreviewLine,
@@ -74,11 +76,10 @@ export const ProfileBuilderPage = () => {
 
   useEffect(() => {
     let cancelled = false;
-    // Don't preview until name is filled — the API will reject without
-    // it. The supplier can still see the live calc in the column once
-    // they type a name. (Could also relax the API to allow nameless
-    // previews; this is fine for now.)
     if (!debouncedRequest.name) {
+      // Don't preview until name is filled — the API requires it. The
+      // table still updates (no preview column) so the supplier can
+      // iterate on scope and adjustment without naming the profile.
       setPreview(null);
       setPreviewError(null);
       return;
@@ -91,10 +92,24 @@ export const ProfileBuilderPage = () => {
         setPreview(res);
         setPreviewError(null);
       })
-      .catch((e: Error) => {
+      .catch((err: unknown) => {
         if (cancelled) return;
         setPreview(null);
-        setPreviewError(e.message);
+        // ApiError carries structured details from the backend's
+        // ZodError. Render those if present so the supplier sees
+        // "adjustment.value: must be a finite number" rather than a
+        // generic "Validation error".
+        if (err instanceof ApiError) {
+          setPreviewError(renderThunkError({
+            message: err.toDisplay(),
+            code: err.code,
+            status: err.status,
+            details: err.details,
+            errorId: err.errorId,
+          }) ?? err.message);
+        } else {
+          setPreviewError(err instanceof Error ? err.message : String(err));
+        }
       })
       .finally(() => {
         if (!cancelled) setPreviewing(false);
@@ -123,7 +138,7 @@ export const ProfileBuilderPage = () => {
   };
 
   // ---- Save ------------------------------------------------------------
-  const canSave = !!request.name && saveStatus !== "saving";
+  const canSave = !!request.name && saveStatus !== "pending";
 
   const onSave = async () => {
     dispatch(resetSaveStatus());
@@ -157,8 +172,18 @@ export const ProfileBuilderPage = () => {
             <input
               type="number"
               min={0}
-              value={builder.priority}
-              onChange={(e) => dispatch(setPriority(e.target.valueAsNumber || 100))}
+              step={1}
+              value={Number.isFinite(builder.priority) ? builder.priority : ""}
+              onChange={(e) => {
+                // valueAsNumber returns NaN for "", "abc", and other
+                // non-numeric input. We previously did `|| 100` which
+                // silently snapped to 100 — the user typed garbage and
+                // never knew. Now: keep the prior value on empty input
+                // (so a transient empty box doesn't blow away their
+                // last good number) and only commit valid integers.
+                const n = e.target.valueAsNumber;
+                if (Number.isFinite(n) && n >= 0) dispatch(setPriority(Math.floor(n)));
+              }}
             />
           </label>
           <label className="field" style={{ flex: "0 0 110px" }}>
@@ -247,15 +272,24 @@ export const ProfileBuilderPage = () => {
         </div>
       )}
 
-      {previewError && <div className="alert error">Preview: {previewError}</div>}
+      {previewError && (
+        <div className="alert error" style={{ whiteSpace: "pre-wrap" }}>
+          Preview: {previewError}
+        </div>
+      )}
       {previewing && <div className="muted">Previewing…</div>}
+
+      {saveError && (
+        <div className="alert error" style={{ whiteSpace: "pre-wrap" }}>
+          {renderThunkError(saveError) ?? "Failed to save profile"}
+        </div>
+      )}
 
       <div className="row">
         <button onClick={() => dispatch(reset())}>Reset</button>
         <div className="spacer" />
-        {saveError && <div className="bad">{saveError}</div>}
         <button className="primary" onClick={onSave} disabled={!canSave}>
-          {saveStatus === "saving" ? "Saving…" : "Save profile"}
+          {saveStatus === "pending" ? "Saving…" : "Save profile"}
         </button>
       </div>
     </div>

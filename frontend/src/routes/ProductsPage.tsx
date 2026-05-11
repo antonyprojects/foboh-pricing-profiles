@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { useAppDispatch, useAppSelector } from "@/redux/store";
 import { fetchProducts } from "@/redux/productsSlice";
+import { renderThunkError } from "@/redux/thunkError";
 import { ProductFilterBar } from "@/components/ProductFilterBar";
 import { ProductTable } from "@/components/ProductTable";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
@@ -38,7 +39,11 @@ export const ProductsPage = () => {
         totalCount={totalCatalogue}
       />
 
-      {status === "error" && <div className="alert error">{error}</div>}
+      {status === "error" && (
+        <div className="alert error" style={{ whiteSpace: "pre-wrap" }}>
+          {renderThunkError(error) ?? "Failed to load products"}
+        </div>
+      )}
       {status === "loading" && items.length === 0 ? (
         <div className="card muted">Loading…</div>
       ) : (

@@ -38,3 +38,59 @@ test("productInScope respects optional skus filter", () => {
   assert.equal(productInScope(p, { kind: "sub_category", subCategory: "Wine" }), true);
   assert.equal(productInScope(p, { kind: "segment", segment: "White" }), false);
 });
+
+// ---- error handling guarantees -----------------------------------------
+
+test("applyAdjustment rejects NaN basePrice (would otherwise serialize to null)", () => {
+  assert.throws(
+    () => applyAdjustment(Number.NaN, { kind: "fixed", direction: "decrease", value: 5 }),
+    /basePrice must be a finite number/,
+  );
+});
+
+test("applyAdjustment rejects NaN adjustment value (would otherwise leak NaN through to JSON)", () => {
+  assert.throws(
+    () => applyAdjustment(100, { kind: "fixed", direction: "decrease", value: Number.NaN }),
+    /adjustment\.value must be a finite number/,
+  );
+});
+
+test("applyAdjustment rejects Infinity values", () => {
+  assert.throws(
+    () => applyAdjustment(100, { kind: "dynamic", direction: "decrease", value: Infinity }),
+    /adjustment\.value must be a finite number/,
+  );
+});
+
+test("applyAdjustment rejects unknown adjustment kind", () => {
+  assert.throws(
+    () => applyAdjustment(100, { kind: "totally-made-up", value: 5 }),
+    /Unknown adjustment kind/,
+  );
+});
+
+test("applyAdjustment rejects fixed/dynamic without a direction", () => {
+  assert.throws(
+    () => applyAdjustment(100, { kind: "fixed", value: 5 }),
+    /direction required for kind=fixed/,
+  );
+  assert.throws(
+    () => applyAdjustment(100, { kind: "dynamic", value: 5 }),
+    /direction required for kind=dynamic/,
+  );
+});
+
+test("describeAdjustment rejects non-numeric values rather than crashing on toFixed", () => {
+  assert.throws(
+    () => describeAdjustment({ kind: "fixed", direction: "decrease", value: "five" }),
+    /adjustment\.value must be a finite number/,
+  );
+});
+
+test("productInScope throws on unknown scope kind (instead of silently returning false)", () => {
+  const p = { sku: "A", brand: "X", subCategory: "Wine", segment: "Red", active: true };
+  assert.throws(
+    () => productInScope(p, { kind: "category" }),
+    /Unknown productScope kind/,
+  );
+});

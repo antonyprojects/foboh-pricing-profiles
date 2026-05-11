@@ -4,6 +4,8 @@ import { useAppDispatch, useAppSelector } from "@/redux/store";
 import { fetchCustomers } from "@/redux/customersSlice";
 import { fetchProducts } from "@/redux/productsSlice";
 import { pricingApi } from "@/api/endpoints";
+import { ApiError } from "@/api/client";
+import { renderThunkError } from "@/redux/thunkError";
 import { fmtMoney } from "@/utils/format";
 import type { ResolveResponse } from "@/types/api";
 
@@ -36,10 +38,20 @@ export const ResolverPage = () => {
         setResult(res);
         setError(null);
       })
-      .catch((e: Error) => {
+      .catch((err: unknown) => {
         if (cancelled) return;
-        setError(e.message);
         setResult(null);
+        if (err instanceof ApiError) {
+          setError(renderThunkError({
+            message: err.toDisplay(),
+            code: err.code,
+            status: err.status,
+            details: err.details,
+            errorId: err.errorId,
+          }) ?? err.message);
+        } else {
+          setError(err instanceof Error ? err.message : String(err));
+        }
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -85,7 +97,11 @@ export const ResolverPage = () => {
         </label>
       </div>
 
-      {error && <div className="alert error">{error}</div>}
+      {error && (
+        <div className="alert error" style={{ whiteSpace: "pre-wrap" }}>
+          {error}
+        </div>
+      )}
       {loading && !result && <div className="card muted">Resolving…</div>}
 
       {result && (
