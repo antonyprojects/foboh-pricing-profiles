@@ -9,6 +9,8 @@ import { openApiSpec } from "./config/swagger.js";
 import { errorHandler, notFound } from "./middleware/errorHandler.js";
 
 import healthRouter from "./routes/health.js";
+import productsRouter from "./routes/products.js";
+import customersRouter from "./routes/customers.js";
 
 /**
  * Builds the Express app. Kept separate from `server.js` so tests can
@@ -24,6 +26,8 @@ export const createApp = () => {
 
   app.get("/", (_req, res) => res.json({ name: "foboh-pricing-api", docs: "/docs" }));
   app.use("/api/health", healthRouter);
+  app.use("/api/products", productsRouter);
+  app.use("/api/customers", customersRouter);
 
   app.use("/docs", swaggerUi.serve, swaggerUi.setup(openApiSpec, { explorer: true }));
   app.get("/openapi.json", (_req, res) => res.json(openApiSpec));
