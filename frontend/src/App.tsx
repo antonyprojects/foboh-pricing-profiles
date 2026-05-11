@@ -4,6 +4,7 @@ import { ProductsPage } from "@/routes/ProductsPage";
 import { ProfilesPage } from "@/routes/ProfilesPage";
 import { ProfileBuilderPage } from "@/routes/ProfileBuilderPage";
 import { ResolverPage } from "@/routes/ResolverPage";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 export const App = () => (
   <div className="layout">
@@ -31,11 +32,26 @@ export const App = () => (
     <main className="main">
       <Routes>
         <Route path="/" element={<Navigate to="/builder" replace />} />
-        <Route path="/builder" element={<ProfileBuilderPage />} />
-        <Route path="/builder/:id" element={<ProfileBuilderPage />} />
-        <Route path="/profiles" element={<ProfilesPage />} />
-        <Route path="/products" element={<ProductsPage />} />
-        <Route path="/resolver" element={<ResolverPage />} />
+        <Route
+          path="/builder"
+          element={<ErrorBoundary area="builder"><ProfileBuilderPage /></ErrorBoundary>}
+        />
+        <Route
+          path="/builder/:id"
+          element={<ErrorBoundary area="builder"><ProfileBuilderPage /></ErrorBoundary>}
+        />
+        <Route
+          path="/profiles"
+          element={<ErrorBoundary area="profiles"><ProfilesPage /></ErrorBoundary>}
+        />
+        <Route
+          path="/products"
+          element={<ErrorBoundary area="products"><ProductsPage /></ErrorBoundary>}
+        />
+        <Route
+          path="/resolver"
+          element={<ErrorBoundary area="resolver"><ResolverPage /></ErrorBoundary>}
+        />
         <Route path="*" element={<div className="card">Not found.</div>} />
       </Routes>
     </main>

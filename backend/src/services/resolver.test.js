@@ -108,3 +108,42 @@ test("reason text mentions the winning profile, scope path, and adjustment", () 
   assert.match(result.reason, /KOYBRUNV6/);
   assert.match(result.reason, /flat \$95/);
 });
+
+// ---- error handling guarantees -----------------------------------------
+
+test("resolvePrice rejects empty or non-string customerId / sku", () => {
+  assert.throws(() => resolvePrice("", "KOYBRUNV6"), /customerId must be a non-empty string/);
+  assert.throws(() => resolvePrice("cust_bondi_cellars", ""), /sku must be a non-empty string/);
+  assert.throws(() => resolvePrice(null, "KOYBRUNV6"), /customerId must be a non-empty string/);
+  assert.throws(() => resolvePrice("cust_bondi_cellars", 123), /sku must be a non-empty string/);
+});
+
+test("resolvePrice on an inactive product returns base price, not 404 (history must still resolve)", () => {
+  // Mark the product inactive and resolve directly.
+  store.upsertProduct({
+    sku: "KOYBRUNV6",
+    title: "Koyama Methode Brut Nature NV",
+    brand: "Koyama Wines",
+    subCategory: "Wine",
+    segment: "Sparkling",
+    basePrice: 120,
+    active: false,
+  });
+  const result = resolvePrice("cust_bondi_cellars", "KOYBRUNV6");
+  assert.equal(result.sourceProfileId, null);
+  assert.equal(result.price, 120);
+  assert.match(result.reason, /inactive/);
+});
+
+// Note on defensive throws elsewhere in the resolver
+// ----------------------------------------------------------------------
+// `specificityOf` throws if `profile.customerScope.kind` / `productScope.kind`
+// is unknown. We can't realistically reach that path from a black-box
+// resolver call: the schema layer rejects bad kinds at the API
+// boundary, and the store's update/index pair drops corrupted-kind
+// profiles out of the candidate indices, so they never make it into a
+// resolver candidate set. The throws are a code-review safety net
+// against a future refactor that bypasses the schema (e.g. a bulk
+// import). The unit tests in pricing.test.js cover the analogous
+// defensive throws for that module; the resolver's specificityOf is
+// covered by code review + the analogous tests for productInScope.
