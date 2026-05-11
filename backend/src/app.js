@@ -12,6 +12,7 @@ import healthRouter from "./routes/health.js";
 import productsRouter from "./routes/products.js";
 import customersRouter from "./routes/customers.js";
 import profilesRouter from "./routes/profiles.js";
+import pricingRouter from "./routes/pricing.js";
 
 /**
  * Builds the Express app. Kept separate from `server.js` so tests can
@@ -30,6 +31,7 @@ export const createApp = () => {
   app.use("/api/products", productsRouter);
   app.use("/api/customers", customersRouter);
   app.use("/api/profiles", profilesRouter);
+  app.use("/api/pricing", pricingRouter);
 
   app.use("/docs", swaggerUi.serve, swaggerUi.setup(openApiSpec, { explorer: true }));
   app.get("/openapi.json", (_req, res) => res.json(openApiSpec));
