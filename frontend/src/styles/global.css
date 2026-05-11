@@ -1,0 +1,212 @@
+:root {
+  --bg: #0f1115;
+  --bg-elev: #161a22;
+  --bg-elev-2: #1d2230;
+  --border: #2a3142;
+  --text: #e8ecf2;
+  --text-muted: #9aa3b2;
+  --accent: #6ea8ff;
+  --accent-strong: #4f87df;
+  --good: #4ade80;
+  --bad: #f87171;
+  --warn: #facc15;
+  --radius: 8px;
+  --shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+a:hover { text-decoration: underline; }
+
+button, input, select, textarea {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: var(--bg-elev);
+  color: var(--text);
+  padding: 6px 12px;
+  border-radius: var(--radius);
+  transition: border-color 120ms ease, background 120ms ease;
+}
+button:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+button.primary {
+  background: var(--accent-strong);
+  border-color: var(--accent-strong);
+  color: white;
+}
+button.primary:hover:not(:disabled) {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+button.danger {
+  border-color: var(--bad);
+  color: var(--bad);
+}
+
+input[type="text"], input[type="number"], input[type="search"], select, textarea {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 6px 10px;
+  outline: none;
+  width: 100%;
+}
+input:focus, select:focus, textarea:focus {
+  border-color: var(--accent);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--bg-elev);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+th, td {
+  text-align: left;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+th {
+  background: var(--bg-elev-2);
+  font-weight: 600;
+  color: var(--text-muted);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: rgba(110, 168, 255, 0.04); }
+
+.card {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+
+.muted { color: var(--text-muted); }
+.good  { color: var(--good); }
+.bad   { color: var(--bad); }
+.warn  { color: var(--warn); }
+.right { text-align: right; }
+.mono  { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.pill {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  min-height: 100vh;
+}
+.sidebar {
+  background: var(--bg-elev);
+  border-right: 1px solid var(--border);
+  padding: 20px 16px;
+}
+.sidebar h1 {
+  font-size: 14px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin: 0 0 16px;
+}
+.sidebar nav a {
+  display: block;
+  padding: 8px 10px;
+  border-radius: var(--radius);
+  color: var(--text);
+  margin-bottom: 2px;
+}
+.sidebar nav a.active,
+.sidebar nav a:hover {
+  background: var(--bg-elev-2);
+  text-decoration: none;
+}
+.sidebar nav a.active { color: var(--accent); }
+
+.main {
+  padding: 24px 32px;
+  overflow-x: auto;
+}
+
+.row { display: flex; gap: 12px; align-items: center; }
+.row.wrap { flex-wrap: wrap; }
+.col { display: flex; flex-direction: column; gap: 12px; }
+.spacer { flex: 1; }
+
+.section-title {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0 0 4px;
+}
+.section-sub {
+  color: var(--text-muted);
+  margin: 0 0 16px;
+}
+
+.alert {
+  padding: 8px 12px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg-elev);
+}
+.alert.error {
+  border-color: var(--bad);
+  color: var(--bad);
+}
+.alert.success {
+  border-color: var(--good);
+  color: var(--good);
+}
+
+label.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+label.field input,
+label.field select,
+label.field textarea {
+  color: var(--text);
+}
