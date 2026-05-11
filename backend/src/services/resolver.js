@@ -1,6 +1,7 @@
 import { store } from "../store/store.js";
 import { applyAdjustment, describeAdjustment, productInScope } from "./pricing.js";
 import { HttpError } from "../middleware/errorHandler.js";
+import { logger } from "../config/logger.js";
 
 /**
  * Precedence rule — "most specific commercial intent wins".
@@ -17,22 +18,12 @@ import { HttpError } from "../middleware/errorHandler.js";
  *
  * The smallest tuple wins.
  *
- * Why this shape:
- *   1. A profile that names a single customer + single SKU is a
- *      deliberate, individually negotiated price. It should never be
- *      out-voted by a broad group-level rule. Specificity captures that
- *      "the supplier was being deliberate about this exact case".
- *   2. Customer specificity is weighted ahead of product specificity:
- *      "this exact customer on a brand" beats "any customer in a group
- *      on this exact SKU". A specific customer relationship is the
- *      stronger commercial signal in B2B wholesale.
- *   3. `priority` is a manual lever for the rare case where ops needs
- *      to force a different ordering without restructuring scopes.
- *      Defaults to 100 so there's room either side.
- *   4. Newest wins on full ties because the most recent edit is the
- *      most current commercial decision. Profile id is the final
- *      tiebreaker so the answer is deterministic even if two profiles
- *      share an updatedAt millisecond.
+ * Error handling stance: every scoring lookup checks that it found a
+ * real value. A profile with a corrupted `customerScope.kind` would
+ * otherwise produce `undefined - undefined = NaN`, which makes the
+ * sort comparator non-deterministic — exactly the silent-fail we
+ * don't want. We throw with the offending profile id so the operator
+ * can grep for it.
  */
 
 const CUSTOMER_SCORE = {
@@ -49,11 +40,37 @@ const PRODUCT_SCORE = {
   all_products: 4,
 };
 
+const scoreOf = (table, key, fieldName, profileId) => {
+  const v = table[key];
+  if (typeof v !== "number") {
+    throw new Error(
+      `Resolver: profile ${profileId} has unknown ${fieldName}=${JSON.stringify(key)}; ` +
+      `expected one of ${Object.keys(table).join(", ")}`,
+    );
+  }
+  return v;
+};
+
 const specificityOf = (profile) => ({
-  customer: CUSTOMER_SCORE[profile.customerScope.kind],
-  product: PRODUCT_SCORE[profile.productScope.kind],
-  priority: profile.priority ?? 100,
+  customer: scoreOf(CUSTOMER_SCORE, profile.customerScope?.kind, "customerScope.kind", profile.id),
+  product: scoreOf(PRODUCT_SCORE, profile.productScope?.kind, "productScope.kind", profile.id),
+  priority: typeof profile.priority === "number" ? profile.priority : 100,
 });
+
+const updatedAtMs = (profile) => {
+  const ms = Date.parse(profile.updatedAt);
+  if (Number.isNaN(ms)) {
+    // Not throw-worthy on its own (the resolver can still produce a
+    // deterministic answer using the profileId tiebreaker), but log
+    // loudly so the bad data surfaces in ops.
+    logger.warn("Resolver: profile has invalid updatedAt; falling back to 0", {
+      profileId: profile.id,
+      updatedAt: profile.updatedAt,
+    });
+    return 0;
+  }
+  return ms;
+};
 
 /**
  * Lexicographic compare. Returns negative when `a` wins.
@@ -64,9 +81,9 @@ const compareProfiles = (a, b) => {
   if (sa.customer !== sb.customer) return sa.customer - sb.customer;
   if (sa.product !== sb.product) return sa.product - sb.product;
   if (sa.priority !== sb.priority) return sa.priority - sb.priority;
-  const ta = Date.parse(a.updatedAt) || 0;
-  const tb = Date.parse(b.updatedAt) || 0;
-  if (ta !== tb) return tb - ta; // newer wins
+  const ta = updatedAtMs(a);
+  const tb = updatedAtMs(b);
+  if (ta !== tb) return tb - ta;
   return a.id.localeCompare(b.id);
 };
 
@@ -95,19 +112,28 @@ const reasonFor = (profile, customer, product) => {
 
 /**
  * Resolve the effective price for a (customer, product) pair.
- *
- * @param {string} customerId
- * @param {string} sku
- * @returns Resolution payload with the winning price, source profile,
- *          plain-English reason, and the full ordered candidate list
- *          (useful for debugging and for the UI's "why" affordance).
  */
 export const resolvePrice = (customerId, sku) => {
+  if (typeof customerId !== "string" || !customerId.trim()) {
+    throw new HttpError(400, "INVALID_INPUT", "customerId must be a non-empty string");
+  }
+  if (typeof sku !== "string" || !sku.trim()) {
+    throw new HttpError(400, "INVALID_INPUT", "sku must be a non-empty string");
+  }
+
   const customer = store.getCustomer(customerId);
   if (!customer) throw new HttpError(404, "NOT_FOUND", `Unknown customer: ${customerId}`);
 
   const product = store.getProduct(sku);
   if (!product) throw new HttpError(404, "NOT_FOUND", `Unknown product: ${sku}`);
+
+  // We filter inactive products at the resolver too, not just the
+  // catalogue. An inactive product reaching here means the supplier
+  // explicitly looked it up by SKU; we return base-price-no-profile
+  // rather than 404 so historical references keep resolving.
+  if (!product.active) {
+    return baseOnlyResult(customer, product, "Product is inactive; charging catalogue base price.");
+  }
 
   const candidates = store
     .candidateProfilesForCustomer(customerId)
@@ -123,16 +149,7 @@ export const resolvePrice = (customerId, sku) => {
   }));
 
   if (candidates.length === 0) {
-    return {
-      customerId,
-      sku,
-      basePrice: product.basePrice,
-      price: product.basePrice,
-      sourceProfileId: null,
-      sourceProfileName: null,
-      reason: `No pricing profile applies to ${customer.name} for ${product.title}. Charging the catalogue base price.`,
-      considered,
-    };
+    return baseOnlyResult(customer, product, `No pricing profile applies to ${customer.name} for ${product.title}. Charging the catalogue base price.`);
   }
 
   const winner = candidates[0];
@@ -147,3 +164,14 @@ export const resolvePrice = (customerId, sku) => {
     considered,
   };
 };
+
+const baseOnlyResult = (customer, product, reason) => ({
+  customerId: customer.id,
+  sku: product.sku,
+  basePrice: product.basePrice,
+  price: product.basePrice,
+  sourceProfileId: null,
+  sourceProfileName: null,
+  reason,
+  considered: [],
+});
